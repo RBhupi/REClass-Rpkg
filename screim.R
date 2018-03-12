@@ -1,0 +1,457 @@
+#' ---
+#' title: "Identification of Stratiform and Convective Radar Echoes using Wavelets"
+#' author: "Bhupendra Raut"
+#' date: "February 27, 2016"
+#' @description This script is based on the script written for Darwin project 
+#' to identify convection for tracking. 
+#' https://github.com/RBhupi/Darwin-Rscripts.git 
+#' check this for earlier version Darwin-Rscripts/cpol_wt_daily.R 
+#' ---
+
+#'
+#' This R script reads netCDF files contaning volume scans from Darwin radar data.
+#' A trous wavelet transform (ATWT) is used to separate convective regions from the stratiform regions.
+#' 
+#'
+#'Issues: 
+#'
+#' ToDo
+#' 1. makes three classes: Convective, Stratiform and Transitional.
+#' 2. check verticle structure
+#+ echo=FALSE
+#==========================================================================================
+# Start the clock!
+start_time <- proc.time()
+
+#+ echo=TRUE, eval=FALSE, warning=FALSE, error=FALSE, message=FALSE
+#' Following R packages are required.
+library(ncdf4)    #Read/Write netcdf-4 files
+library(plot3D)
+library(RColorBrewer)
+library(scales) #for alpha()
+
+#for creating daily output files
+library(stringr)
+library(plyr)
+
+#+ echo=FALSE
+#----------------------------------------------------------------------functions
+
+#'saves verticle structure in the txt file for clustering.
+#'
+#'This function is required to get the verticle structure modes using k-modes algorithm.
+#'This is not used in actual classification.
+#'
+#'@param wt_class_3d
+#'@seealso \code{get_class()} function.
+save_vert_struct <- function(wt_class_3d, vcheck_range=seq(30), outPath="./profiles.txt"){
+    wt_class_3d <- replace(wt_class_3d, is.na(wt_class_3d), 0)
+    dims <- dim(wt_class_3d)
+    
+    #for testing 
+    num_conv_lev <-c(NULL)
+    num_strat_lev <- c(NULL)
+    vstruct <- matrix(data = NA, ncol=length(vcheck_range), nrow = 0, byrow = TRUE)
+    
+    #for each column
+    for(x in seq(dims[1])){
+        for(y in seq(dims[2])){
+            vert_column <- wt_class_3d[x, y, vcheck_range]
+            
+            #delete this lines when done
+            #if column is not empty 
+            if(!all(vert_column==0)){
+                num_conv_lev <- append(num_conv_lev, length(vert_column[vert_column==2]))
+                num_strat_lev <- append(num_strat_lev, length(vert_column[vert_column==1])) 
+                vstruct<-rbind(vstruct, vert_column)
+                
+            }
+        }
+    }
+    
+    num_convstrat <- data.frame(cbind(num_strat_lev, num_conv_lev))
+    
+    write.table(x=vstruct, file = outPath, append = TRUE, col.names = FALSE, row.names = FALSE)
+    write.table(num_convstrat, file = str_replace(outPath, ".txt", "_StCo_freq.txt"), append = TRUE, row.names = FALSE, col.names = FALSE)
+}    
+
+
+
+
+
+get_class <- function(vol_data, conv_scale){
+    wtco <- get_conv_wt(vol_data, conv_scale)
+    wt_class <- ifelse(wtco>0, 2, NA)
+    wt_class <- replace(wt_class, is.na(wt_class) & vol_data>-10, 1)
+    invisible(wt_class)
+}
+
+
+#' 2D projection of 3D convective-stratiform classes.
+#' 
+#' Checks verticle profile of the classification and finds continuous
+#' regions of similar classification and assigns one dominent class. 
+#' If both classes has comparable presence, mixed class is assigned.
+#' @param wt_class_3d Volume classification obtained from \code{get_class()}
+#' @return class2d Array of pixels labeled with three classes. 1. stratiform, 2. Convection, 3. Mixed
+#' @seealso \code{get_class()}
+class3d_to2d <- function(wt_class_3d){
+    wt_class_3d <- replace(wt_class_3d, is.na(wt_class_3d), 0)
+    
+    dims <- dim(wt_class_3d)
+    
+    #checking verticle column up to this level
+    vcheck_range <- 1:30 
+    
+    class2d <- array(data=NA, dim = dims[1:2])
+    
+    
+    #for testing 
+    num_conv_lev <-c(NULL)
+    num_strat_lev <- c(NULL)
+    mat1 <- matrix(data = NA, ncol=length(vcheck_range), nrow = 0, byrow = TRUE)
+    
+    
+    
+    
+    
+    #for each column
+    for(x in seq(dims[1])){
+        for(y in seq(dims[2])){
+            vert_column <- wt_class_3d[x, y, vcheck_range]
+
+            #delete this lines when done
+            #if column is not empty 
+            if(!all(vert_column==0)){
+                num_conv_lev <- append(num_conv_lev, length(vert_column[vert_column==2]))
+                num_strat_lev <- append(num_strat_lev, length(vert_column[vert_column==1])) 
+                mat1<-rbind(mat1, vert_column)
+
+            }
+            next()
+            
+            
+            #if column is empty (all '0') or has only one type then assign it.
+            if(all(vert_column==max(vert_column))){
+                class2d[x, y] <- vert_column[1]
+                next()
+            }
+            
+            #else check longest run length of non-zero pixels. the max run length is dominant type. 
+            run <- rle(vert_column[vert_column>0])
+            if(all(run$lengths<=3)){
+                class2d[x, y] <- 0
+                next()
+            }
+            
+            
+            #if both types are comparable in run length then call it mixed.
+            if(length(run$lengths)>1 & abs(run$lengths[1]-run$lengths[2])<=2){
+                class2d[x, y] <- 3
+                next()
+            }
+            #else max run length wins
+            max_run_ind <- which(run$lengths==max(run$lengths))
+            rain_type <- run$values[max_run_ind]
+            class2d[x, y] <- rain_type
+        }
+    }
+    
+    invisible(class2d)
+}
+
+
+
+#' Compute scan-by-scan ATWT of radar volume.
+#'
+#' Converts dBZ to rain rates using standard Z-R relationship. 
+#' This is to transform the normally distributed dBZ to gamma-like distribution. 
+#' @param \code{vol_data} 3D array containing radar data. Last dimension should be levels.
+#' @param \code{conv_scale} scale break (in pixels) between convective and stratiform scales. 
+#' @return Sum of wavelets upto \code{conv_scale} for each scan.
+get_conv_wt<-function(vol_data, conv_scale){
+    #transform the data
+    vol_data <- dbz2rr_std(vol_data)
+    
+    dims <- dim(vol_data)
+    
+    #if data is 2d
+    if(length(dims)==2){ 
+        wt <- atwt(vol_data, max_scale = conv_scale)
+        wtco<- apply(wt, MARGIN = c(2, 3), FUN = sum)
+        return(wtco)
+    }
+
+    #else for volume data
+    num_levels <- dims[3]  
+    wtco <- array(data=NA, dim = dims)
+    
+    for(lev in seq(num_levels)){
+        wt <- atwt(vol_data[, , lev], max_scale = conv_scale)
+        wtco[, , lev] <- apply(wt, MARGIN = c(2, 3), FUN = sum)
+    }
+    
+    invisible(wtco)
+}
+
+
+#' Remove tiny fluctuations that may not be of interest. 
+#' 
+#' This may not be needed for clean dataset. 
+#' Use when WT has too much noise with trial and error approach.
+#' @param wt_scan 2d wt image at a scale or sum of several scales.
+#' @param times_sd Default value=1. pixels with WT value < mean + times_sd * SD are removed.
+#' @return wt_scan with small values removed.
+remove_insig_wt <-function(wt_scan, times_sd=1){
+    wt_scan<- replace(wt_scan, wt_scan < mean(wt_scan)+(sd(wt_scan)*times_sd) , 0.0)
+    retrun(wt_scan)
+}
+
+
+#' computes rain rate using standard Z-R relationship.
+#' 
+#' @param dbz array, vector or matrix of reflectivity in dBZ
+#' @return rr rain rate in \code{mm/hr} 
+dbz2rr_std <- function(dbz){
+    ZRA=200
+    ZRB=1.6
+    rr<-((10.0^(dbz/10.0))/ZRA)^(1.0/ZRB)
+    return(rr)
+}
+
+
+
+
+
+
+
+#'Computes A trous wavelet transform (ATWT)
+#'
+#'Computes ATWT of the 2d array up to \code{max_scale}. 
+#'If \code{max_scale} is outside the boundaries, number of scales will be reduced.
+#'Data is mirrored at the boundaries.'Negative WT are removed. Not tested for non-square data.
+#'@param data2d 2d image as array or matrix.
+#'@param max_scale computes wavelets up to \code{max_scale}. Leave blank for maximum possible scales.
+#'@return array containing ATWT of input image with added 3rd dimention for scales.
+#'@todo Need to break this into smaller functions.
+atwt <- function (data2d, max_scale=-1){
+    #removed missing and negative values
+    data2d <- replace(data2d, is.na(data2d)|data2d<1, 0.0)
+    
+    dims <- dim(data2d)
+    ny <- dims[1]
+    nx <- dims[2]
+    max_possible_scale <- get_max_scale(dims)
+    
+    
+    if(max_scale<0 | max_possible_scale<max_scale)
+        max_scale <- max_possible_scale
+    
+    
+    wt <- array(data=0.0, dim = c(max_scale, dims))
+    
+    sf=c(0.0625, 0.25, 0.375) # function
+    
+    temp1<-array(data=0.0, dim = dims)
+    temp2<-array(data=0.0, dim = dims)
+    
+    #start Wavelet loop
+    for(scale in 1:max_scale){
+        x1 <- 2^(scale-1)
+        x2 <- 2 * x1
+        
+        #Row-wise (longitude) smoothing
+        for (i in 1:nx){
+            
+            #find the indices for prev and next points on the line
+            prev2 <- abs(i-x2)
+            prev1 <- abs(i-x1)
+            next1 <- (i+x1)
+            next2 <- (i+x2)
+            
+            #If these indices are outside the image, "mirror" them
+            #Sometime this causes issues at higher scales.
+            if(next1 > nx) next1 <- 2*nx - next1
+            
+            if(next2 > nx) next2 <- 2*nx - next2
+            
+            if(prev1<1 | prev2 <1){
+                prev1 <- next1
+                prev2 <- next2
+            }
+            
+            
+            for (j in 1:(ny)) {
+                #print(paste("i=", i,  "j=", j, "scale=", scale, "prev2=", prev2, "prev1=",prev1, "next1=", next1, "next2=", next2))
+                left2  <-  data2d[j, prev2]
+                left1  <-  data2d[j, prev1]
+                right1  <-  data2d[j, next1]
+                right2  <-  data2d[j, next2]
+                temp1[j, i]  <-  sf[1] * (left2+right2) +
+                    sf[2] * (left1 + right1) + sf[3] * data2d[j, i]
+            }
+        }
+        
+        
+        #column-wise (latitude) smoothing
+        for(i in 1:ny){
+            
+            prev2 <- abs(i-x2)
+            prev1 <- abs(i-x1)
+            next1 <- (i+x1)
+            next2 <- (i+x2)
+            
+            #If these indices are outside the image use next values
+            if(next1 > ny) next1 <- 2*ny - next1
+            
+            if(next2 > ny) next2 <- 2*ny - next2
+            
+            if(prev1<1 | prev2 <1){
+                prev1 <- next1
+                prev2 <- next2
+            }
+            
+            
+            
+            
+            for(j in 1:nx){
+                top2  <-  temp1[prev2, j]
+                top1  <-  temp1[prev1, j]
+                bottom1  <-  temp1[next1, j]
+                bottom2  <-  temp1[next2, j]
+                temp2[i, j]  <-  sf[1] * (top2+bottom2) +
+                    sf[2] * (top1 + bottom1) + sf[3] * temp1[i, j]
+            }
+        }
+        
+        wt[scale, , ] <- data2d - temp2
+        data2d <- temp2
+    }
+    invisible(wt)
+}
+
+
+#' Calculate the mximum possible scale of ATWT for given dimensions.
+#' 
+#' @param data_dim output of the \code{dim(data2d)} for given matrix or array.
+#' @return max_scale integer value of the maximum scale.
+get_max_scale<-function(data_dims){
+    min_dim <- min(data_dims)
+    max_scale <- log(min_dim)/log(2)
+    return(floor(max_scale))
+}
+
+
+#====================================================================================#
+#                     FUNCTIONS FOR CREATING OUTPUT FILE
+#====================================================================================#
+
+#' gives list of files belong to the same day as the first file in list_allFiles.
+#' 
+#' Method: split the first file's name by "_" and extract 'dates' string,
+#' then search for the same 'dates' in the list and return them back.
+#' @param list_allFiles output of Glob or list.files()
+#' @param datestr_revpos the position of date in file name from the reverse direction.
+get_1dayFiles <- function (list_allFiles, datestr_revpos) {
+    firstFile <- list_allFiles[1]
+    fname_split <- unlist(strsplit(firstFile, "_"))
+    date_str <- fname_split[length(fname_split)-datestr_revpos]
+    selectFiles <- str_detect(list_allFiles, date_str)
+    flist_select <- list_allFiles[selectFiles]
+    print(paste(length(flist_select), "file(s) found on", date_str))
+    return(flist_select)
+}
+
+
+#reads time from a single netcdf file. Using with laply.
+get_nctime <- function(filename){
+    ncfile <- nc_open(filename)
+    time <- ncvar_get(ncfile, varid = "time")
+    tunit <- ncatt_get(ncfile, varid="time", attname = "units")
+    
+    time_posix <- as.POSIXct(time, origin="2017-01-03T00:00:03Z", tz="UTC")
+    
+    return(time_posix)
+}
+
+get_outFileName <- function(sample_fName){
+    fname_split <- unlist(strsplit(sample_fName, "_"))
+    date_str <- fname_split[length(fname_split)-3]
+    ofName<-paste("CPOL_ATWT_ECHO_CLASSIFICATION_", date_str, ".nc", sep="")
+    return(ofName)
+}
+
+
+#'creates output netCDF file usin variables and dims from Steiner classification file.
+#'
+#'This is done to keep consistency between the files for easier comparison.
+create_outNC<-function(outfPath, time_seconds){
+    fname_steiner <- "../testdata/darwin_class/CPOL_STEINER_ECHO_CLASSIFICATION_20161210_level2.nc"
+    nc_steiner <- nc_open(fname_steiner)
+    x_dim <- nc_steiner$dim$x
+    y_dim <- nc_steiner$dim$y
+    t_dim <- ncdim_def(name = "time", units = "seconds since 1970-01-01 00:00:00 UTC", calendar = "gregorian",
+                       vals= time_seconds, longname = "Time of the scan", unlim = TRUE)
+    class_var<-ncvar_def(name="atwt_echo_classification", units = "", dim=list(y_dim, x_dim, t_dim), missval = -1, 
+                         longname = "echo classification based on Bhupendra Raut`s method", prec = "integer", shuffle = TRUE, 
+                         compression = 7, chunksizes = c(x_dim$len, y_dim$len, 1))
+    
+    
+    ofile <- nc_create(filename = outfPath, vars =class_var)
+    
+    nc_close(nc_steiner)
+    return(ofile)
+}
+
+
+
+
+#'compute convective-stratiform scale break for given radar resolution.
+res_km <- 2.5
+conv_scale_km <- 10
+scale_break <-log((conv_scale_km/res_km))/log(2)+1
+scale_break <- round(scale_break)
+
+
+#get all input file names
+
+setwd("~/projects/screim/data/Darwin/")
+
+#read all file names recursively, give correct patterns
+flist_all<-list.files("./201701/", pattern=".nc", recursive = T, full.names = T)
+print(paste(length(flist_all), "file(s) in the folder."))
+
+#flist_all<-flist_all[1:2]
+
+while(length(flist_all)>0) {
+    
+    flist <- get_1dayFiles(flist_all, 3)
+    flist_all <- flist_all[flist_all!=flist] #remaining files are stored for next iteration
+    #time_seconds<- laply(flist, get_nctime)
+    #daily_ofname <- get_outFileName(flist[1])
+    #outNC <- create_outNC(daily_ofname, time_seconds)
+    
+    
+    file_counter <-0
+    for(afile in flist){
+        afile<-"../testdata/CPOL_20161210_0730_GRIDS_2500m.nc"
+        file_counter <- file_counter+1
+        nc_file <- nc_open(afile)
+        dbz_vol <- ncvar_get(nc_file, varid="corrected_reflectivity")
+        if(max(dbz_vol, na.rm = TRUE)<1) next()
+        
+        wt_class_3d <- get_class(dbz_vol, scale_break)
+        if(all(wt_class_3d<1, na.rm = TRUE)) next()
+        
+        save_vert_struct(wt_class_3d)
+        #class2d <- class3d_to2d(wt_class_3d)
+     #   class2d_dims <- dim(class2d)
+      #  ncvar_put(outNC, varid = "atwt_echo_classification", vals = class2d,
+       #           start = c(1, 1, file_counter), count=c(class2d_dims, 1))
+    }
+    #nc_close(outNC)
+    
+    
+}
+
+
