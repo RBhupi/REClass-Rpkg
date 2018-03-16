@@ -438,6 +438,14 @@ create_outNC<-function(outfPath, time_seconds, sample_file){
     ncvar_put(ofile, varid = "lon0", vals = lon, start = c(1, 1), count = dim(lon))
 
     nc_close(nc_sample)
+
+
+    # add flags for echo_type
+    flags_val <- c(1, 2, 3, 4, 5)
+    flags_meaning <- c("Cg-Cb Cb+Anvil low-St deep-St high-St")
+    ncatt_put(nc = ofile, varid = "ATWT_ECHO_CLASSIFICATION", attname = "flag_values", attval =flags_val)
+    ncatt_put(nc = ofile, varid = "ATWT_ECHO_CLASSIFICATION", attname = "flag_meanings", attval =flags_meaning)
+    ncatt_put(nc = ofile, varid = "ATWT_ECHO_CLASSIFICATION", attname = "valid_range", attval =c(1,5))
     return(ofile)
 }
 
@@ -455,13 +463,15 @@ scale_break <- round(scale_break)
 
 setwd("~/projects/screim/data/Darwin/")
 vclust_object <- readRDS(file="./kmodes-clust5.RDS") #this loads cluster data in an object calle "prof_clust"
-indir<-"./201701/"
+indir<-"../testdata/"
 
 #read all file names recursively, give correct patterns
 flist_all<-list.files(indir, pattern="2500m.nc", recursive = T, full.names = T)
 print(paste(length(flist_all), "file(s) in the folder."))
 
 outdir <- paste(indir, "atwt_class/", sep = "")
+#exit(outdir)
+
 dir.create(outdir)
 
 
