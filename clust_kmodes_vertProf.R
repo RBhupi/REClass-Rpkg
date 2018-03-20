@@ -21,7 +21,7 @@ prof_clust <- kmodes(vprof_sample, iter.max = 100, modes = nclust, weighted = TR
 clust<-array(as.numeric(unlist(prof_clust$modes)), dim = c(nclust, 30))
 
 #save file
-save(prof_clust, file = "./kmodes-clust5.RData")
+saveRDS(prof_clust, file = "./kmodes-clust5-1.RDS")
 
 cols <- brewer.pal(name="Set3", n=11)
 col_2class <- cols[5:6]
