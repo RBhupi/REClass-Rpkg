@@ -26,7 +26,6 @@ start_time <- proc.time()
 #+ echo=TRUE, eval=FALSE, warning=FALSE, error=FALSE, message=FALSE
 #' Following R packages are required.
 library(ncdf4)    #Read/Write netcdf-4 files
-library(plot3D)
 library(RColorBrewer)
 library(scales) #for alpha()
 
@@ -44,19 +43,19 @@ library(plyr)
 #'
 #'@param wt_class_3d
 #'@seealso \code{nearest_kmode()} function.
-save_vert_prof <- function(wt_class_3d, vcheck_range=seq(30), outPath="./profiles.txt"){
+save_vert_prof <- function(wt_class_3d, outPath="./profiles.txt"){
     wt_class_3d <- replace(wt_class_3d, is.na(wt_class_3d), 0)
     dims <- dim(wt_class_3d)
 
     #for testing
     num_conv_lev <-c(NULL)
     num_strat_lev <- c(NULL)
-    vstruct <- matrix(data = NA, ncol=length(vcheck_range), nrow = 0, byrow = TRUE)
+    vstruct <- matrix(data = NA, ncol=length(vert_range), nrow = 0, byrow = TRUE)
 
     #for each column
     for(x in seq(dims[1])){
         for(y in seq(dims[2])){
-            vert_column <- wt_class_3d[x, y, vcheck_range]
+            vert_column <- wt_class_3d[x, y, vert_range]
 
             #delete this lines when done
             #if column is not empty
@@ -98,15 +97,12 @@ class3d_to2d <- function(wt_class_3d, clust){
 
     dims <- dim(wt_class_3d)
 
-    #checking verticle column up to this level
-    vcheck_range <- 1:30
-
     class2d <- array(data=NA, dim = dims[1:2])
 
     #for each column
     for(x in seq(dims[1])){
         for(y in seq(dims[2])){
-            vert_column <- wt_class_3d[x, y, vcheck_range]
+            vert_column <- wt_class_3d[x, y, vert_range]
             class2d[x, y] <- nearest_kmode(vert_column, clust)
         }
     }
@@ -160,6 +156,8 @@ get_conv_wt<-function(vol_data, conv_scale){
     wtco <- array(data=NA, dim = dims)
 
     for(lev in seq(num_levels)){
+	if(max(vol_data[, , lev], na.rm=TRUE)<1) next()
+
         wt <- atwt(vol_data[, , lev], max_scale = conv_scale)
         wtco[, , lev] <- apply(wt, MARGIN = c(2, 3), FUN = sum)
     }
@@ -389,6 +387,13 @@ create_outNC<-function(outfPath, time_seconds, sample_file){
     class_var<-ncvar_def(name="ATWT_ECHO_CLASSIFICATION", units = "", dim=list(y_dim, x_dim, t_dim), missval = -1,
                          longname = "echo classification based on Bhupendra Raut`s method", prec = "integer", shuffle = TRUE,
                          compression = 7, chunksizes = c(x_dim$len, y_dim$len, 1))
+    
+    #Fastest changing dimention has to be written last in R so it is alway (lon, lat, time)
+    lat_dim <- ncvar_def(name = "lat0", units = nc_sample$var$latitude$units, dim = list(y_dim, x_dim),
+                         prec = "float", longname = "latitude")
+
+    lon_dim <- ncvar_def(name = "lon0", units = nc_sample$var$longitude$units, dim = list(y_dim, x_dim),
+                         prec = "float", longname = "longitude")
 
     proj_var  <- ncvar_def(name = "grid_mapping_0", units = "", dim=list())
 
@@ -427,12 +432,6 @@ create_outNC<-function(outfPath, time_seconds, sample_file){
     lon <- ncvar_get(nc_sample, varid =nc_sample$var$longitude$name, start = c(1, 1, 1, 1), count=c(-1, -1, 1, 1))
 
 
-    #Fastest changing dimention has to be written last in R so it is alway (lon, lat, time)
-    lat_dim <- ncvar_def(name = "lat0", units = nc_sample$var$latitude$units, dim = list(y_dim, x_dim),
-                         prec = "float", longname = "latitude")
-
-    lon_dim <- ncvar_def(name = "lon0", units = nc_sample$var$longitude$units, dim = list(y_dim, x_dim),
-                         prec = "float", longname = "longitude")
 
     ncvar_put(ofile, varid = "lat0", vals = lat, start = c(1, 1), count = dim(lat))
     ncvar_put(ofile, varid = "lon0", vals = lon, start = c(1, 1), count = dim(lon))
@@ -451,31 +450,29 @@ create_outNC<-function(outfPath, time_seconds, sample_file){
 
 
 
-
 #'compute convective-stratiform scale break for given radar resolution.
 res_km <- 2.5
 conv_scale_km <- 10
 scale_break <-log((conv_scale_km/res_km))/log(2)+1
 scale_break <- round(scale_break)
-
+vert_range <-1:30 #levels to be consider for classification.
 
 #get all input file names
 
-setwd("~/projects/screim/data/Darwin/")
-vclust_object <- readRDS(file="./kmodes-clust5.RDS") #this loads cluster data in an object calle "prof_clust"
-indir<-"../testdata/"
+setwd("/home/565/bar565/bar-gdata3/darwin")
+vclust_object <- readRDS(file="./data/kmodes-clust5.RDS") #this loads cluster data in an object calle "prof_clust"
+indir<-"/home/565/bar565/vhl-cpol/CPOL_level_1b/GRIDDED/GRID_150km_2500m/2017"
 
 #read all file names recursively, give correct patterns
-flist_all<-list.files(indir, pattern="2500m.nc", recursive = T, full.names = T)
+flist_all<-list.files(indir, pattern="*.nc", recursive = T, full.names = T)
 print(paste(length(flist_all), "file(s) in the folder."))
 
-outdir <- paste(indir, "atwt_class/", sep = "")
-#exit(outdir)
+outdir <- paste("./data/atwt_types/", sep = "")
 
 dir.create(outdir)
 
 
-flist_all <- flist_all[1:2]
+flist_all <- flist_all[1:8322]
 
 while(length(flist_all)>0) {
     flist <- get_1dayFiles(flist_all, 3)
@@ -483,7 +480,8 @@ while(length(flist_all)>0) {
     time_seconds<- laply(flist, get_nctime)
     daily_ofname <- paste(outdir, get_outFileName(flist[1]), sep="")
     outNC <- create_outNC(daily_ofname, time_seconds, flist[1])
-
+    var_dim <- outNC$var$ATWT_ECHO_CLASSIFICATION$varsize
+    empty_array <- array(data=0, dim=var_dim[1:2])
 
     file_counter <-0
     for(afile in flist){
@@ -491,8 +489,15 @@ while(length(flist_all)>0) {
         print(paste("processing file", file_counter, basename(afile)))
 
         nc_file <- nc_open(afile)
-        dbz_vol <- ncvar_get(nc_file, varid="corrected_reflectivity")
-        if(max(dbz_vol, na.rm = TRUE)<1) next()
+        dbz_vol <- ncvar_get(nc_file, varid="corrected_reflectivity", start=c(1, 1, 1, 1), count=c(-1, -1, max(vert_range), -1))
+	nc_close(nc_file)
+	
+	# put zero for insignificant  reflectivity. set this tlimit low after testing is done.
+        if(all(is.na(dbz_vol)) | max(dbz_vol, na.rm = TRUE)<10){
+        ncvar_put(outNC, varid = "ATWT_ECHO_CLASSIFICATION", vals = empty_array,
+                  start = c(1, 1, file_counter), count=c(dim(empty_array), 1))
+	next()
+	}
 
         wt_class_3d <- get_class(dbz_vol, scale_break)
         if(all(wt_class_3d<1, na.rm = TRUE)) next()
@@ -500,9 +505,8 @@ while(length(flist_all)>0) {
         #save_vert_prof(wt_class_3d)
 
         class2d <- class3d_to2d(wt_class_3d, vclust_object)
-        class2d_dims <- dim(class2d)
         ncvar_put(outNC, varid = "ATWT_ECHO_CLASSIFICATION", vals = class2d,
-                  start = c(1, 1, file_counter), count=c(class2d_dims, 1))
+                  start = c(1, 1, file_counter), count=c(dim(class2d), 1))
     }
     nc_close(outNC)
 
@@ -511,4 +515,5 @@ while(length(flist_all)>0) {
 
 # Check time.
 end_time <- proc.time()
+print(end_time - start_time)
 
