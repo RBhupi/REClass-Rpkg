@@ -140,15 +140,15 @@ nearest_kmode<-function(vert_prof, kclust){
 #' @return Sum of wavelets upto \code{conv_scale} for each scan.
 get_conv_wt<-function(vol_data, conv_scale){
     #transform the data
-    vol_data <- dbz2rr_std(vol_data)
+    vol_data_T <- dbz2rr_std(vol_data)
 
-    dims <- dim(vol_data)
+    dims <- dim(vol_data_T)
 
     #if data is 2d
     if(length(dims)==2){
-        wt <- atwt(vol_data, max_scale = conv_scale)
+        wt <- atwt(vol_data_T, max_scale = conv_scale)
         wtco<- apply(wt, MARGIN = c(2, 3), FUN = sum)
-        return(wtco)
+        invisible(wtco)
     }
 
     #else for volume data
@@ -156,10 +156,9 @@ get_conv_wt<-function(vol_data, conv_scale){
     wtco <- array(data=NA, dim = dims)
 
     for(lev in seq(num_levels)){
-	if(max(vol_data[, , lev], na.rm=TRUE)<1) next()
-
-        wt <- atwt(vol_data[, , lev], max_scale = conv_scale)
-        wtco[, , lev] <- apply(wt, MARGIN = c(2, 3), FUN = sum)
+        if(max(vol_data[, , lev], na.rm=TRUE)<1) next()
+        wt <- atwt(vol_data_T[, , lev], max_scale = conv_scale)
+        wtco[, , lev] <- remove_insig_wt(apply(wt, MARGIN = c(2, 3), FUN = sum))
     }
 
     invisible(wtco)
@@ -173,9 +172,9 @@ get_conv_wt<-function(vol_data, conv_scale){
 #' @param wt_scan 2d wt image at a scale or sum of several scales.
 #' @param times_sd Default value=1. pixels with WT value < mean + times_sd * SD are removed.
 #' @return wt_scan with small values removed.
-remove_insig_wt <-function(wt_scan, times_sd=1){
-    wt_scan<- replace(wt_scan, wt_scan < mean(wt_scan)+(sd(wt_scan)*times_sd) , 0.0)
-    retrun(wt_scan)
+remove_insig_wt <-function(wt_scan, min_wt=2){
+    wt_scan<- replace(wt_scan, wt_scan < 2 , 0.0)
+    return(wt_scan)
 }
 
 
@@ -451,8 +450,8 @@ create_outNC<-function(outfPath, time_seconds, sample_file){
 
 
 #'compute convective-stratiform scale break for given radar resolution.
-res_km <- 2.5
-conv_scale_km <- 10
+res_km <- 1 #2.5
+conv_scale_km <- 15
 scale_break <-log((conv_scale_km/res_km))/log(2)+1
 scale_break <- round(scale_break)
 vert_range <-1:30 #levels to be consider for classification.
@@ -460,7 +459,7 @@ vert_range <-1:30 #levels to be consider for classification.
 #get all input file names
 
 setwd("/home/565/bar565/bar-gdata3/darwin")
-vclust_object <- readRDS(file="./data/kmodes-clust5.RDS") #this loads cluster data in an object calle "prof_clust"
+vclust_object <- readRDS(file="~/projects/screim/R/kmodes-clust5.RDS") #this loads cluster data in an object calle "prof_clust"
 indir<-"/home/565/bar565/vhl-cpol/CPOL_level_1b/GRIDDED/GRID_150km_2500m/2017"
 
 #read all file names recursively, give correct patterns
