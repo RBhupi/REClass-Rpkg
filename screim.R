@@ -35,8 +35,15 @@ library(plyr)
 
 
 
-#' cluster verticle profiles using K-Modes algorithm and saves it in RDS file.
-#' @seealso klaR package
+#' saves clusters of verticle profiles to disk.
+#' 
+#' This function clusters given verticle profiles using K-Modes algorithm 
+#' and saves it in RDS file.
+#' @param vprof_sample
+#' @param nclust
+#' @export 
+#' @seealso \url{https://cran.r-project.org/web/packages/klaR/index.html}{klaR} package
+#' @seealso \code{\link{saveVertProf}}
 clusterProfiles <- function(vprof_sample,  nclust =5) {
     dim_vprof <- dim(vprof_sample)
     #use weighed modes
@@ -54,8 +61,14 @@ clusterProfiles <- function(vprof_sample,  nclust =5) {
 
 #'
 #'
-#'
-#'@note provide only rainy volume scans to this function.
+#'Saves verticle profiles to disk
+#'@param fout output file path
+#'@param dbz_vol 3d radar reflectvity volume that will be used for classification.
+#'@param scale_break scale break obtained from \code{\link{getScaleBreak}}
+#'@param vert_range number of verticle levels to be considered for classification
+#'@param nsample only few random veticle samples will taken from each image. (Default 10)
+#'@export
+#'@note Provide only rainy volume scans to this function. Keep \code{nsample} small.
 
 saveVertProf <- function(fout="./profiles.txt", dbz_vol, scale_break, vert_range=1:30, nsample=10){
     wt_class_3d <- getClass(dbz_vol, scale_break)
@@ -70,8 +83,8 @@ saveVertProf <- function(fout="./profiles.txt", dbz_vol, scale_break, vert_range
 #'The function is not used in actual classification run.
 #'
 #'@param wt_class_3d
-#'@param nsample profiles will be saved from this volume for efficiency. default=10. 
-#'@seealso \code{nearest_kmode()} function.
+#'@param n only few profiles will be saved from this volume for efficiency. default=10. 
+#'@seealso \code{link{nearest_kmode}} function.
 sampleVertProf <- function(wt_class_3d, n=10, vert_range=1:30){
     dims <- dim(wt_class_3d)
     vstruct <- matrix(data = NA, ncol=length(vert_range), nrow = 0, byrow = TRUE)
@@ -104,6 +117,8 @@ sampleVertProf <- function(wt_class_3d, n=10, vert_range=1:30){
 #' @param \code{vol_data} 3D array containing radar data. Last dimension should be levels.
 #' @param \code{conv_scale} scale break (in pixels) between convective and stratiform scales.
 #' @return Sum of wavelets upto \code{conv_scale} for each scan.
+#' @export
+#' @seealso \code{\linc{getWTSum}}
 getClass <- function(vol_data, conv_scale){
     vol_data_T <- dbz2rr(vol_data)
     wt_sum <- getWTSum(vol_data_T, conv_scale)
@@ -284,7 +299,7 @@ atwt2d <- function (data2d, max_scale=-1){
 #' Calculate the mximum possible scale of ATWT for given dimensions.
 #'
 #' @param data_dim output of the \code{dim(data2d)} for given matrix or array.
-#' @return max_scale integer value of the maximum scale.
+#' @return integer value of the maximum scale.
 getMaxScale<-function(data_dims){
     min_dim <- min(data_dims)
     max_scale <- log(min_dim)/log(2)
@@ -297,9 +312,11 @@ getMaxScale<-function(data_dims){
 
 #' compute scale break for convection and stratiform regions.
 #' 
+#' WT will be computed upto this scale and features will be designated as convection.
 #' @param res_km resolution of the image.
 #' @param conv_scale_km expected size of spatial variations due to convection.
 #' @return dyadic integer scale break in pixels.  
+#' @export
 getScaleBreak<- function(res_km, conv_scale_km){
     scale_break <-log((conv_scale_km/res_km))/log(2)+1
     return(round(scale_break))
@@ -314,9 +331,12 @@ getScaleBreak<- function(res_km, conv_scale_km){
 #' Checks verticle profile of the classification and finds continuous
 #' regions of similar classification and assigns one dominent class.
 #' If both classes has comparable presence, mixed class is assigned.
-#' @param wt_class_3d Volume classification obtained from \code{get_class()}
-#' @return class2d Array of pixels labeled with three classes. 1. stratiform, 2. Convection, 3. Mixed
-#' @seealso \code{get_class()}
+#' @param wt_class_3d Volume classification obtained from \code{\linc{get_class}}
+#' @param vert_clust Clusters saved in RDs files from functions \code{\linc{clusterProfiles}}
+#' @param vert_range same vert_range in as \code{\linc{saveVertProf}} and \code{\linc{sampleVertProf}}
+#' @return 2d array of pixels labeled with three classes. 1. stratiform, 2. Convection, 3. Mixed (Need correction)
+#' @export
+#' @seealso \code{\linc{get_class}}
 class3dTo2d <- function(wt_class_3d, vert_clust, vert_range=1:30){
     wt_class_3d <- replace(wt_class_3d, is.na(wt_class_3d), 0)
     
@@ -366,6 +386,7 @@ matchKModes<-function(vert_prof, kclust){
 #' then search for the same 'dates' in the list and return them back.
 #' @param list_allFiles output of Glob or list.files()
 #' @param datestr_revpos the position of date in file name from the reverse direction.
+#' @export
 get_1dayFiles <- function (list_allFiles, datestr_revpos) {
     firstFile <- list_allFiles[1]
     fname_split <- unlist(strsplit(firstFile, "_"))
@@ -406,7 +427,7 @@ get_nctime <- function(filename){
 
 
 
-
+#' @export
 get_outFileName <- function(sample_fName){
     fname_split <- unlist(strsplit(sample_fName, "_"))
     date_str <- fname_split[length(fname_split)-3]
@@ -418,6 +439,8 @@ get_outFileName <- function(sample_fName){
 #'creates output netCDF file usin variables and dims from Steiner classification file.
 #'
 #'This is done to keep consistency between the files for easier comparison.
+#'I dont know if this is still valid.
+#'@export
 create_outNC<-function(outfPath, time_seconds, sample_file){
     nc_sample <- nc_open(sample_file)
     x_dim <- nc_sample$dim$x
