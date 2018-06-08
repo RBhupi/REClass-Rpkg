@@ -1,0 +1,14 @@
+Package: screim
+Title: Stratiform and Convection Radar Echo Identification Method (SCREIM)
+Version: 0.0.0.9000
+Authors@R: person("Bhupendra", "Raut", email = "dr.baraut@gmail.com", role = c("aut", "cre"))
+Description: A trous wavelet transform (ATWT) is used to separate convective regions as horizontally non-homogeneouse and non-convective regions.
+Depends: R (>= 3.4.3),
+	ncdf4,
+Imports: klaR,
+	stringr,
+License: The MIT License (MIT)
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.0.1
+URL: www.baraut.info/prog
