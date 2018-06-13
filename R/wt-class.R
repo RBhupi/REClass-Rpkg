@@ -14,7 +14,7 @@ getWTClass <- function(vol_data, conv_scale){
     wt_sum <- getWTSum(vol_data_T, conv_scale)
     #wt_sum <- refineWT_withDBZ(wt_sum, dbz_vol)
     wt_class <- ifelse(wt_sum>10, 2, NA)
-    wt_class <- replace(wt_class, is.na(wt_class) & vol_data>-10, 1)
+    wt_class <- replace(wt_class, is.na(wt_class) & vol_data>10, 1)
     invisible(wt_class)
 }
 
@@ -27,23 +27,21 @@ getWTSum <- function(vol_data_T, conv_scale) {
     if(length(dims)==2){
         wt <- atwt2d(vol_data_T, max_scale = conv_scale)
         wt_sum<- apply(wt, MARGIN = c(2, 3), FUN = sum)
-        invisible(wt_sum)
-    }
+    } else { 			#else for volume data
+    	num_levels <- dims[3]
+    	wt_sum <- array(data=NA, dim = dims)
     
-    #else for volume data
-    num_levels <- dims[3]
-    wt_sum <- array(data=NA, dim = dims)
-    
-    for(lev in seq(num_levels)){
-        if(max(vol_data_T[, , lev], na.rm=TRUE)<1) next() #this needs reviewing
-        wt <- atwt2d(vol_data_T[, , lev], max_scale = conv_scale)
-        wt_pos <- replace(wt, wt<0, 0) # remove negative WT
+    	for(lev in seq(num_levels)){
+        	if(max(vol_data_T[, , lev], na.rm=TRUE)<1) next() #this needs reviewing
+        	wt <- atwt2d(vol_data_T[, , lev], max_scale = conv_scale)
         
-        #sum all the WT scales.
-        wt_sum[, , lev] <- apply(wt, MARGIN = c(2, 3), FUN = sum)
+        	#sum all the WT scales.
+        	wt_sum[, , lev] <- apply(wt, MARGIN = c(2, 3), FUN = sum)
+    	}
     }
     
-    
+    #negative WT do not corresponds to convection in radar
+    #wt_sum <- replace(wt_sum, wt_sum<0, 0) #check calling function
     invisible(wt_sum)
 }
 
@@ -62,13 +60,12 @@ cleanWT <-function(wt_sum, dbz_vol){
 
 
 
-#' computes rain rate using standard Z-R relationship.
+#' computes rain rate using Z-R relationship.
 #'
+#'Uses standard values for ZRA=200 and ZRB=1.6.
 #' @param dbz array, vector or matrix of reflectivity in dBZ
 #' @return rr rain rate in \code{mm/hr}
-dbz2rr <- function(dbz){
-    ZRA=200
-    ZRB=1.6
+dbz2rr <- function(dbz, ZRA=200, ZRB=1.6){
     rr<-((10.0^(dbz/10.0))/ZRA)^(1.0/ZRB)
     return(rr)
 }
