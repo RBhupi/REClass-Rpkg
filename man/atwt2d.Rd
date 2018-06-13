@@ -22,6 +22,9 @@ Data is mirrored at the boundaries.'Negative WT are removed. Not tested for non-
 \note{
 Need to break this into smaller functions.
 }
+\seealso{
+Press et al. (1992) Numerical Recipes in C.
+}
 \author{
-Dileep M. Puranik and Bhupendra Raut
+Bhupendra Raut and Dileep M. Puranik
 }

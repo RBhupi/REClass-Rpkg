@@ -2,9 +2,9 @@
 % Please edit documentation in R/wt-class.R
 \name{dbz2rr}
 \alias{dbz2rr}
-\title{computes rain rate using standard Z-R relationship.}
+\title{computes rain rate using Z-R relationship.}
 \usage{
-dbz2rr(dbz)
+dbz2rr(dbz, ZRA = 200, ZRB = 1.6)
 }
 \arguments{
 \item{dbz}{array, vector or matrix of reflectivity in dBZ}
@@ -13,5 +13,5 @@ dbz2rr(dbz)
 rr rain rate in \code{mm/hr}
 }
 \description{
-computes rain rate using standard Z-R relationship.
+Uses standard values for ZRA=200 and ZRB=1.6.
 }
