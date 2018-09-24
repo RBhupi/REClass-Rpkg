@@ -34,13 +34,12 @@ library(stringr)
 library(plyr)
 
 
-
 #' saves clusters of verticle profiles to disk.
 #' 
 #' This function clusters given verticle profiles using K-Modes algorithm 
 #' and saves it in RDS file.
-#' @param vprof_sample
-#' @param nclust
+#' @param vprof_sample saved samples from the function \code{\link{saveVertProf}}
+#' @param nclust Desired number of clusters. (Default 5)
 #' @export 
 #' @seealso \url{https://cran.r-project.org/web/packages/klaR/index.html}{klaR} package
 #' @seealso \code{\link{saveVertProf}}
@@ -118,7 +117,7 @@ sampleVertProf <- function(wt_class_3d, n=10, vert_range=1:30){
 #' @param \code{conv_scale} scale break (in pixels) between convective and stratiform scales.
 #' @return Sum of wavelets upto \code{conv_scale} for each scan.
 #' @export
-#' @seealso \code{\linc{getWTSum}}
+#' @seealso \code{\link{getWTSum}}
 getClass <- function(vol_data, conv_scale){
     vol_data_T <- dbz2rr(vol_data)
     wt_sum <- getWTSum(vol_data_T, conv_scale)
@@ -331,12 +330,12 @@ getScaleBreak<- function(res_km, conv_scale_km){
 #' Checks verticle profile of the classification and finds continuous
 #' regions of similar classification and assigns one dominent class.
 #' If both classes has comparable presence, mixed class is assigned.
-#' @param wt_class_3d Volume classification obtained from \code{\linc{get_class}}
-#' @param vert_clust Clusters saved in RDs files from functions \code{\linc{clusterProfiles}}
-#' @param vert_range same vert_range in as \code{\linc{saveVertProf}} and \code{\linc{sampleVertProf}}
+#' @param wt_class_3d Volume classification obtained from \code{\link{get_class}}
+#' @param vert_clust Clusters saved in RDs files from functions \code{\link{clusterProfiles}}
+#' @param vert_range same vert_range in as \code{\link{saveVertProf}} and \code{\link{sampleVertProf}}
 #' @return 2d array of pixels labeled with three classes. 1. stratiform, 2. Convection, 3. Mixed (Need correction)
 #' @export
-#' @seealso \code{\linc{get_class}}
+#' @seealso \code{\link{get_class}}
 class3dTo2d <- function(wt_class_3d, vert_clust, vert_range=1:30){
     wt_class_3d <- replace(wt_class_3d, is.na(wt_class_3d), 0)
     
@@ -398,8 +397,15 @@ get_1dayFiles <- function (list_allFiles, datestr_revpos) {
 }
 
 
-#reads time from a single netcdf file. Using with laply.
-#I had to write this complecated function  to convert variable time epoch to standard unix epoch.
+#' reads time from a single netcdf file. Using with laply.
+#' 
+#' Titan/CF radial generated files do not have constatnt time epoch. The time units changes for every file.
+#' Therefore, I had to write this complicated function  to convert variable time epoch to standard unix epoch.
+#' @note This function has sevarl assumptions about the way time units are written. 
+#' It may not work with files other than CF-radial.
+#' @param filename file name 
+#' @return time in POSIX standard with "1970-01-01" as origin.
+#' @export
 get_nctime <- function(filename){
     ncfile <- nc_open(filename)
 
@@ -441,7 +447,7 @@ get_outFileName <- function(sample_fName){
 #'This is done to keep consistency between the files for easier comparison.
 #'I dont know if this is still valid.
 #'@export
-create_outNC<-function(outfPath, time_seconds, sample_file){
+create_outNC_class<-function(outfPath, time_seconds, sample_file){
     nc_sample <- nc_open(sample_file)
     x_dim <- nc_sample$dim$x
     y_dim <- nc_sample$dim$y
@@ -544,7 +550,7 @@ while(length(flist_all)>0) {
     flist_all <- flist_all[flist_all!=flist] #remaining files are stored for next iteration
     time_seconds<- laply(flist, get_nctime)
     daily_ofname <- paste(outdir, get_outFileName(flist[1]), sep="")
-    outNC <- create_outNC(daily_ofname, time_seconds, flist[1])
+    outNC <- create_outNC_class(daily_ofname, time_seconds, flist[1])
     var_dim <- outNC$var$ATWT_ECHO_CLASSIFICATION$varsize
     empty_array <- array(data=0, dim=var_dim[1:2])
     
@@ -574,7 +580,6 @@ while(length(flist_all)>0) {
                   start = c(1, 1, file_counter), count=c(dim(class2d), 1))
     }
     nc_close(outNC)
-    
     
 }
 
