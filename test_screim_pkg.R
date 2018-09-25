@@ -30,7 +30,7 @@ setwd("~/projects/screim/data/testdata/")
 #vclust_object <- readRDS(file="~/projects/screim/R/kmodes-clust5.RDS") #this loads cluster data in an object calle "prof_clust"
 
 
-dbz_file <- nc_open("./CPOL_20161210_1320_GRIDS_2500m.nc")
+dbz_file <- nc_open("./CPOL_20161210_0730_GRIDS_2500m.nc")
 dbz_vol <- ncvar_get(dbz_file, varid="corrected_reflectivity", 
                      start=c(1, 1, 1, 1), count=c(-1, -1, max(vert_range), -1))
 
@@ -38,14 +38,14 @@ dbz_vol <- replace(dbz_vol, dbz_vol<10, NA)
 nc_close(dbz_file)
 
 wt_class_3d <- getWTClass(dbz_vol, scale_break)
-#dbz_vol_t <- dbz2rr(dbz_vol)
-wt_sum_dbz <- getWTSum(dbz_vol, scale_break)
+dbz_vol_t <- dbz2rr(dbz_vol)
+wt_sum_dbz <- getWTSum(dbz_vol_t, scale_break)
 #wt_sum_dbz <- replace(wt_sum_dbz, wt_sum_dbz<10, NA)
 
 hyd_file <- nc_open("./darwin_class/CPOL_RADAR_ECHO_CLASSIFICATION_20161210_level2.nc")
 stn_file <- nc_open("./darwin_class/CPOL_STEINER_ECHO_CLASSIFICATION_20161210_level2.nc")
 
-t_ind<-81 #46 #81
+t_ind<-46 #81
 steiner <- ncvar_get(stn_file, varid = "steiner_echo_classification", 
                      start = c(1, 1, t_ind), count = c(-1, -1, 1))
 steiner <- replace(steiner, steiner<1, NA)
@@ -71,27 +71,27 @@ col_10class <- cols <- brewer.pal(name="Set1", n=9)
 
 radar_range <- (-58:58)*2.5
 
-pdf("../../plots/wt_dbz_screim_2d_comparison_CPOL_20161210_1320.pdf", width = 6, height = 8, bg = "white")
+pdf("../../plots/wt_rain_screim_2d_comparison_CPOL_20161210_0730.pdf", width = 6, height = 8, bg = "white")
 layout(mat=matrix(data=c(1:4, 5, 5), nrow = 3, ncol = 2, byrow = T))
 image2D(dbz_vol[, , 6], x=radar_range, y=radar_range, xlab="[Km]", ylab="[Km]",
         main="a) Reflectivity [dBZ], 2Km CAPPI", col = cols_dbz, NAcol = "grey80");grid(lty=2, col="white", lwd=0.5)
-abline(h=-122.5, col="magenta", lwd=1, lty=3) #cross section at 75 Km
+abline(h=72.5, col="magenta", lwd=1, lty=3) #cross section at 75 Km
 
 image2D(wt_class_3d[, , 6], x=radar_range, y=radar_range, xlab="[Km]", ylab="[Km]", 
         main="b) WT Class", breaks=c(0, 1, 2), col=col_2class, colkey = F);grid(lty=2)
-legend("topleft", fill = rev(col_2class), legend = rev(c("2. Non-convective", "1. Convective")), 
+legend("bottomright", fill = rev(col_2class), legend = rev(c("2. Non-convective", "1. Convective")), 
        bty="n", border = T)
 
 
 image2D(hydro, x=radar_range, y=radar_range, xlab="[Km]", ylab="[Km]", colkey = F,
         main="c) Hydrometeor Class", breaks=seq(0:5), col=col_10class[2:6]);grid(lty=2)
-legend("topleft", fill = col_10class[2:6], legend = c("1: Drizzle", "2: Rain", "3: Ice Crystals", "4: Aggregates",
+legend("bottomright", fill = col_10class[2:6], legend = c("1: Drizzle", "2: Rain", "3: Ice Crystals", "4: Aggregates",
                                                           "5: Wet Snow"),  bty="n", border = T)
 
 
 image2D(steiner, x=radar_range, y=radar_range, xlab="[Km]", ylab="[Km]", 
         main="d) SHY95 class",breaks=c(0, 1, 2), col=col_2class, colkey = F);grid(lty=2)
-legend("topleft", fill = rev(col_2class), legend = rev(c("2. Non-convective", "1. Convective")), 
+legend("bottomright", fill = rev(col_2class), legend = rev(c("2. Non-convective", "1. Convective")), 
        bty="n", border = T)
 
 vrange<-(1:30)*0.5
@@ -99,14 +99,15 @@ vrange<-(1:30)*0.5
 #        main="e) Vertical Cross-section of Reflectivity");grid(lty=2)
 #contour2D(wt_class_3d[,10 , ], x=radar_range, y=vrange, colkey = F, col = "black", add=T, 
 #          lwd=.1, lty=3, resfac = 2, clab = F)
+ycross <- 88
 
-image2D(dbz_vol[,10 , ], x=radar_range, y=vrange, xlab="[Km]", ylab="[Km]", 
+image2D(dbz_vol[, ycross, ], x=radar_range, y=vrange, xlab="[Km]", ylab="[Km]", 
       main="e) Vertical Cross-section of Reflectivity", col = cols_dbz, NAcol = "grey80");grid(lty=2, col="white", lwd=0.5)
-contour2D(wt_sum_dbz[,10 , ], x=radar_range, y=vrange, colkey = F, col = "black", add=T, 
+contour2D(wt_sum_dbz[,ycross , ], x=radar_range, y=vrange, colkey = F, col = "black", add=T, 
                 lwd=1, lty=2,  breaks=seq(10, 30, 5))
 
 
-contour2D(wt_class_3d[,10 , ], x=radar_range, y=vrange, colkey = F, col = "red", add=T, 
+contour2D(wt_class_3d[,ycross , ], x=radar_range, y=vrange, colkey = F, col = "red", add=T, 
                  lwd=0.5, lty=1, resfac = 2, clab = F, breaks=c(0, 15))
 #
 
