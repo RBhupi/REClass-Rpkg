@@ -38,8 +38,8 @@ dbz_vol <- replace(dbz_vol, dbz_vol<10, NA)
 nc_close(dbz_file)
 
 wt_class_3d <- getWTClass(dbz_vol, scale_break)
-dbz_vol_t <- dbz2rr(dbz_vol)
-wt_sum_dbz <- getWTSum(dbz_vol_t, scale_break)
+#dbz_vol_t <- dbz2rr(dbz_vol)
+wt_sum_dbz <- getWTSum(dbz_vol, scale_break)
 #wt_sum_dbz <- replace(wt_sum_dbz, wt_sum_dbz<10, NA)
 
 hyd_file <- nc_open("./darwin_class/CPOL_RADAR_ECHO_CLASSIFICATION_20161210_level2.nc")
@@ -71,10 +71,10 @@ col_10class <- cols <- brewer.pal(name="Set1", n=9)
 
 radar_range <- (-58:58)*2.5
 
-pdf("../../plots/wt_screim_2d_comparison.pdf", width = 5.5, height = 10, bg = "white")
-layout(mat=matrix(data=c(1:4, 5, 5, 6, 6), nrow = 4, ncol = 2, byrow = T))
+pdf("../../plots/wt_dbz_screim_2d_comparison_CPOL_20161210_1320.pdf", width = 6, height = 8, bg = "white")
+layout(mat=matrix(data=c(1:4, 5, 5), nrow = 3, ncol = 2, byrow = T))
 image2D(dbz_vol[, , 6], x=radar_range, y=radar_range, xlab="[Km]", ylab="[Km]",
-        main="a) Reflectivity [dBZ], 2Km CAPPI");grid(lty=2)
+        main="a) Reflectivity [dBZ], 2Km CAPPI", col = cols_dbz, NAcol = "grey80");grid(lty=2, col="white", lwd=0.5)
 abline(h=-122.5, col="magenta", lwd=1, lty=3) #cross section at 75 Km
 
 image2D(wt_class_3d[, , 6], x=radar_range, y=radar_range, xlab="[Km]", ylab="[Km]", 
@@ -90,21 +90,24 @@ legend("topleft", fill = col_10class[2:6], legend = c("1: Drizzle", "2: Rain", "
 
 
 image2D(steiner, x=radar_range, y=radar_range, xlab="[Km]", ylab="[Km]", 
-        main="d) Steiner Class",breaks=c(0, 1, 2), col=col_2class, colkey = F);grid(lty=2)
+        main="d) SHY95 class",breaks=c(0, 1, 2), col=col_2class, colkey = F);grid(lty=2)
 legend("topleft", fill = rev(col_2class), legend = rev(c("2. Non-convective", "1. Convective")), 
        bty="n", border = T)
 
 vrange<-(1:30)*0.5
-image2D(dbz_vol[,10 , ], x=radar_range, y=vrange, xlab="[Km]", ylab="[Km]", 
-        main="e) Vertical Cross-section of Reflectivity");grid(lty=2)
-contour2D(wt_class_3d[,10 , ], x=radar_range, y=vrange, colkey = F, col = "black", add=T, 
-          lwd=.1, resfac = 2, clab = F)
+#image2D(dbz_vol[,10 , ], x=radar_range, y=vrange, xlab="[Km]", ylab="[Km]", 
+#        main="e) Vertical Cross-section of Reflectivity");grid(lty=2)
+#contour2D(wt_class_3d[,10 , ], x=radar_range, y=vrange, colkey = F, col = "black", add=T, 
+#          lwd=.1, lty=3, resfac = 2, clab = F)
 
 image2D(dbz_vol[,10 , ], x=radar_range, y=vrange, xlab="[Km]", ylab="[Km]", 
-      main="e) Vertical Cross-section of Reflectivity");grid(lty=2)
+      main="e) Vertical Cross-section of Reflectivity", col = cols_dbz, NAcol = "grey80");grid(lty=2, col="white", lwd=0.5)
 contour2D(wt_sum_dbz[,10 , ], x=radar_range, y=vrange, colkey = F, col = "black", add=T, 
-                lwd=1, breaks=seq(10, 30, 5))
+                lwd=1, lty=2,  breaks=seq(10, 30, 5))
 
+
+contour2D(wt_class_3d[,10 , ], x=radar_range, y=vrange, colkey = F, col = "red", add=T, 
+                 lwd=0.5, lty=1, resfac = 2, clab = F, breaks=c(0, 15))
 #
 
 dev.off()
