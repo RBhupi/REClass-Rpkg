@@ -1,5 +1,4 @@
 
-
 #' Compute scan-by-scan ATWT of radar volume.
 #'
 #' Converts dBZ to rain rates using standard Z-R relationship.
@@ -10,30 +9,31 @@
 #' @export
 #' @seealso \code{\link{getWTSum}}
 getWTClass <- function(vol_data, conv_scale){
-    vol_data_T <- dbz2rr(vol_data)
-    wt_sum <- getWTSum(vol_data_T, conv_scale)
-    #wt_sum <- refineWT_withDBZ(wt_sum, dbz_vol)
-    wt_class <- ifelse(wt_sum>10, 2, NA)
-    wt_class <- replace(wt_class, is.na(wt_class) & vol_data>10, 1)
+    vol_data <- replace(vol_data, vol_data<10, 0.0)
+    vol_data_t <- dbz2rr(vol_data)
+    wt_sum <- getWTSum(vol_data_t, conv_scale)
+    wt_class <- ifelse(wt_sum>2, 2, NA)
+    wt_class <- replace(wt_class, is.na(wt_class) & vol_data>=10, 1)
     invisible(wt_class)
 }
 
 
 #' returns sum of WT upto given scale.
-getWTSum <- function(vol_data_T, conv_scale) {
-    dims <- dim(vol_data_T)
+#' @export
+getWTSum <- function(vol_data, conv_scale) {
+    dims <- dim(vol_data)
     
     #if data is 2d
     if(length(dims)==2){
-        wt <- atwt2d(vol_data_T, max_scale = conv_scale)
+        wt <- atwt2d(vol_data, max_scale = conv_scale)
         wt_sum<- apply(wt, MARGIN = c(2, 3), FUN = sum)
     } else { 			#else for volume data
     	num_levels <- dims[3]
     	wt_sum <- array(data=NA, dim = dims)
     
     	for(lev in seq(num_levels)){
-        	if(max(vol_data_T[, , lev], na.rm=TRUE)<1) next() #this needs reviewing
-        	wt <- atwt2d(vol_data_T[, , lev], max_scale = conv_scale)
+        	if(max(vol_data[, , lev], na.rm=TRUE)<1) next() #this needs reviewing
+        	wt <- atwt2d(vol_data[, , lev], max_scale = conv_scale)
         
         	#sum all the WT scales.
         	wt_sum[, , lev] <- apply(wt, MARGIN = c(2, 3), FUN = sum)
@@ -41,7 +41,7 @@ getWTSum <- function(vol_data_T, conv_scale) {
     }
     
     #negative WT do not corresponds to convection in radar
-    #wt_sum <- replace(wt_sum, wt_sum<0, 0) #check calling function
+    wt_sum <- replace(wt_sum, wt_sum<0, 0) #check calling function
     invisible(wt_sum)
 }
 
