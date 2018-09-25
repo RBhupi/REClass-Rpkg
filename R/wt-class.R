@@ -10,9 +10,9 @@
 #' @seealso \code{\link{getWTSum}}
 getWTClass <- function(vol_data, conv_scale){
     vol_data <- replace(vol_data, vol_data<10, 0.0)
-    vol_data_t <- dbz2rr(vol_data)
-    wt_sum <- getWTSum(vol_data_t, conv_scale)
-    wt_class <- ifelse(wt_sum>2, 2, NA)
+    #vol_data_t <- dbz2rr(vol_data)
+    wt_sum <- getWTSum(vol_data, conv_scale)
+    wt_class <- ifelse(wt_sum>15, 2, NA)
     wt_class <- replace(wt_class, is.na(wt_class) & vol_data>=10, 1)
     invisible(wt_class)
 }
