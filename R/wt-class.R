@@ -9,13 +9,24 @@
 #' @export
 #' @seealso \code{\link{getWTSum}}
 getWTClass <- function(vol_data, conv_scale){
-    vol_data <- replace(vol_data, vol_data<10, 0.0)
-    vol_data_t <- dbz2rr(vol_data)
+    #vol_data <- replace(vol_data, vol_data<10, 0.0)
+    vol_data_t <- dbz2rr(vol_data) #transform the dbz data
     wt_sum <- getWTSum(vol_data_t, conv_scale)
-    wt_class <- ifelse(wt_sum>2, 2, NA)
-    wt_class <- replace(wt_class, is.na(wt_class) & vol_data>=10, 1)
+    wt_class <- labelClasses(wt_sum, vol_data)
     invisible(wt_class)
 }
+
+
+#' computes rain rate using Z-R relationship.
+#'
+#'Uses standard values for ZRA=200 and ZRB=1.6.
+#' @param dbz array, vector or matrix of reflectivity in dBZ
+#' @return rr rain rate in \code{mm/hr}
+dbz2rr <- function(dbz, ZRA=200, ZRB=1.6){
+    rr<-((10.0^(dbz/10.0))/ZRA)^(1.0/ZRB)
+    return(rr)
+}
+
 
 
 #' returns sum of WT upto given scale.
@@ -46,6 +57,21 @@ getWTSum <- function(vol_data, conv_scale) {
 }
 
 
+
+#' Lables 1. stratiform, 2. convective  and 3. transitional regions 
+#' using given thersholds.
+labelClasses <- function(wt_sum, vol_data) {
+    conv_wt_threshold <- 5
+    tran_wt_threshold <- 2
+    dbz_threshold <- 10
+    wt_class <- ifelse(wt_sum>=conv_wt_threshold, 2, NA)
+    wt_class <- ifelse(wt_sum<conv_wt_threshold & wt_sum>=tran_wt_threshold, 
+                       3, wt_class)
+    wt_class <- replace(wt_class, is.na(wt_class) & vol_data>=dbz_threshold, 1)
+    invisible(wt_class)
+}
+
+
 #' Remove tiny fluctuations that may not be of interest.
 #'
 #' This may not be needed for clean dataset.
@@ -59,16 +85,6 @@ cleanWT <-function(wt_sum, dbz_vol){
 }
 
 
-
-#' computes rain rate using Z-R relationship.
-#'
-#'Uses standard values for ZRA=200 and ZRB=1.6.
-#' @param dbz array, vector or matrix of reflectivity in dBZ
-#' @return rr rain rate in \code{mm/hr}
-dbz2rr <- function(dbz, ZRA=200, ZRB=1.6){
-    rr<-((10.0^(dbz/10.0))/ZRA)^(1.0/ZRB)
-    return(rr)
-}
 
 
 #' compute scale break for convection and stratiform regions.
