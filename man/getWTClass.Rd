@@ -4,7 +4,7 @@
 \alias{getWTClass}
 \title{Compute scan-by-scan ATWT of radar volume.}
 \usage{
-getWTClass(vol_data, conv_scale)
+getWTClass(dbz_data, conv_scale)
 }
 \arguments{
 \item{\code{vol_data}}{3D array containing radar data. Last dimension should be levels.}

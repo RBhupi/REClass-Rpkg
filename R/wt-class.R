@@ -8,11 +8,10 @@
 #' @return Sum of wavelets upto \code{conv_scale} for each scan.
 #' @export
 #' @seealso \code{\link{getWTSum}}
-getWTClass <- function(vol_data, conv_scale){
-    #vol_data <- replace(vol_data, vol_data<10, 0.0)
-    vol_data_t <- dbz2rr(vol_data) #transform the dbz data
-    wt_sum <- getWTSum(vol_data_t, conv_scale)
-    wt_class <- labelClasses(wt_sum, vol_data)
+getWTClass <- function(dbz_data, conv_scale){
+    dbz_data_t <- dbz2rr(dbz_data) #transform the dbz data
+    wt_sum <- getWTSum(dbz_data_t, conv_scale)
+    wt_class <- labelClasses(wt_sum, dbz_data)
     invisible(wt_class)
 }
 
@@ -58,16 +57,18 @@ getWTSum <- function(vol_data, conv_scale) {
 
 
 
-#' Lables 1. stratiform, 2. convective  and 3. transitional regions 
+#' Lables 1. stratiform, 2. intense/heavy convective  and 3. moderate+transitional convective regions 
 #' using given thersholds.
 labelClasses <- function(wt_sum, vol_data) {
-    conv_wt_threshold <- 5
-    tran_wt_threshold <- 2
-    dbz_threshold <- 10
-    wt_class <- ifelse(wt_sum>=conv_wt_threshold, 2, NA)
-    wt_class <- ifelse(wt_sum<conv_wt_threshold & wt_sum>=tran_wt_threshold, 
+    conv_wt_threshold <- 5 #WT value more than this is strong convection
+    tran_wt_threshold <- 2 #WT value for moderate convection
+    min_dbz_threshold <- 10
+    con_dbz_threshold <- 25 # pixel below this value are not convective
+    
+    wt_class <- ifelse(wt_sum>=conv_wt_threshold & vol_data>=con_dbz_threshold, 2, NA)
+    wt_class <- ifelse(wt_sum<conv_wt_threshold & wt_sum>=tran_wt_threshold & vol_data>=con_dbz_threshold, 
                        3, wt_class)
-    wt_class <- replace(wt_class, is.na(wt_class) & vol_data>=dbz_threshold, 1)
+    wt_class <- replace(wt_class, is.na(wt_class) & vol_data>=min_dbz_threshold, 1)
     invisible(wt_class)
 }
 

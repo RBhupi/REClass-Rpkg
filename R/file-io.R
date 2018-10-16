@@ -143,9 +143,8 @@ create_outNC_class<-function(outfPath, time_seconds, sample_file){
     
     
     #read lat lon from sample file
-    lat <- ncvar_get(nc_sample, varid =lat_name, start = c(1, 1), count=c(-1, -1))
-    lon <- ncvar_get(nc_sample, varid =lon_name, start = c(1, 1), count=c(-1, -1))
-    
+    lat <- ncvar_get(nc_sample, varid =lat_name, start = c(1, 1, 1, 1), count=c(-1, -1, 1, 1))
+    lon <- ncvar_get(nc_sample, varid =lon_name, start = c(1, 1, 1, 1), count=c(-1, -1, 1, 1))
     
     
     ncvar_put(ofile, varid = "lat0", vals = lat, start = c(1, 1), count = dim(lat))
