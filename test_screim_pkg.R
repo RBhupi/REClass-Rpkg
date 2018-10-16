@@ -38,6 +38,15 @@ dbz_vol <- replace(dbz_vol, dbz_vol<10, NA)
 nc_close(dbz_file)
 
 wt_class_3d <- getWTClass(dbz_vol, scale_break)
+
+
+#' computes rain rate using Z-R relationship.
+dbz2rr <- function(dbz, ZRA=200, ZRB=1.6){
+    rr<-((10.0^(dbz/10.0))/ZRA)^(1.0/ZRB)
+    return(rr)
+}
+
+
 dbz_vol_t <- dbz2rr(dbz_vol)
 wt_sum_dbz <- getWTSum(dbz_vol_t, scale_break)
 #wt_sum_dbz <- replace(wt_sum_dbz, wt_sum_dbz<10, NA)
@@ -69,46 +78,79 @@ col_10class <- cols <- brewer.pal(name="Set1", n=9)
 
 
 
-radar_range <- (-58:58)*2.5
+cols <- brewer.pal(name="Set3", n=11)
+cols1 <- brewer.pal(name="Accent", 6)
+cols_dbz <-brewer.pal(name="YlGnBu", 9)
 
-pdf("../../plots/wt_rain_screim_2d_comparison_CPOL_20161210_0730.pdf", width = 6, height = 8, bg = "white")
+cols1 <-rev(cols1[c(T, T, T, F, T, T)])
+col_2class <- cols[5:6]
+col_3class <- cols[5:7]
+col_10class <- cols <- brewer.pal(name="Set1", n=9)
+
+cols_dbz <-c("#E8ECFB", "#B997C7", "#824D99", "#4E78C4", "#57A2AC", "#7EB875", 
+             "#D0B541", "#E67F33", "#CE2220", "#521A13")
+
+
+
+radar_range <- (-58:58)*2.5
+vrange<-(1:30)*0.5
+ycross <- 89#8 #89
+
+xlimit=c(-120, 20)#c(-10, 140)
+ylimit=c(40, 100)#c(-150, -50)
+
+
+pdf("../../plots/wt_rain_screim_2d_comparison_CPOL_20161210_0730__test.pdf",
+    width = 6, height = 6, bg = "white")
 layout(mat=matrix(data=c(1:4, 5, 5), nrow = 3, ncol = 2, byrow = T))
+par(oma=c(4,2,2,1), mar=c(3, 4, 2 ,1), mgp=c(2, 1, 0), cex.main=0.9)
+
 image2D(dbz_vol[, , 6], x=radar_range, y=radar_range, xlab="[Km]", ylab="[Km]",
-        main="a) Reflectivity [dBZ], 2Km CAPPI", col = cols_dbz, NAcol = "grey80");grid(lty=2, col="white", lwd=0.5)
-abline(h=72.5, col="magenta", lwd=1, lty=3) #cross section at 75 Km
+        col = cols_dbz, NAcol = "white",
+        xlim=xlimit, ylim=ylimit)#;grid(lty=2, lwd=0.5)
+title(main="a) Reflectivity [dBZ], 3Km CAPPI", adj=0)
+abline(h=radar_range[ycross], col="black", lwd=1, lty=4) #cross section at 75 Km
 
 image2D(wt_class_3d[, , 6], x=radar_range, y=radar_range, xlab="[Km]", ylab="[Km]", 
-        main="b) WT Class", breaks=c(0, 1, 2), col=col_2class, colkey = F);grid(lty=2)
-legend("bottomright", fill = rev(col_2class), legend = rev(c("2. Non-convective", "1. Convective")), 
-       bty="n", border = T)
+        breaks=c(0, 1, 2, 3), col=col_3class, colkey = F,
+        xlim=xlimit, ylim=ylimit)#;grid(lty=2)
+title(main="b) WT Class", adj=0)
+legend("bottomright", fill = col_3class, legend = c("Stratiform", "Convective", "Transitional"), 
+       bty="n", border = T, cex = 0.8)
 
 
-image2D(hydro, x=radar_range, y=radar_range, xlab="[Km]", ylab="[Km]", colkey = F,
-        main="c) Hydrometeor Class", breaks=seq(0:5), col=col_10class[2:6]);grid(lty=2)
+image2D(hydro, x=radar_range, y=radar_range, xlab="[Km]", ylab="[Km]", colkey = F, 
+        breaks=seq(0:5), col=col_10class[2:6],
+        xlim=xlimit, ylim=ylimit)#;grid(lty=2)
+title(main="c) Hydrometeor", adj=0)
+abline(h=radar_range[ycross], col="black", lwd=1, lty=4)
 legend("bottomright", fill = col_10class[2:6], legend = c("1: Drizzle", "2: Rain", "3: Ice Crystals", "4: Aggregates",
-                                                          "5: Wet Snow"),  bty="n", border = T)
+                                                      "5: Wet Snow"),  bty="n", border = T, cex = 0.8)
 
 
 image2D(steiner, x=radar_range, y=radar_range, xlab="[Km]", ylab="[Km]", 
-        main="d) SHY95 class",breaks=c(0, 1, 2), col=col_2class, colkey = F);grid(lty=2)
-legend("bottomright", fill = rev(col_2class), legend = rev(c("2. Non-convective", "1. Convective")), 
-       bty="n", border = T)
+        breaks=c(0, 1, 2), col=col_2class, colkey = F,
+        xlim=xlimit, ylim=ylimit)#;grid(lty=2)
+title(main="d) SHY95", adj=0)
+legend("bottomright", fill = col_2class, legend = c("Stratiform", "Convective"), 
+       bty="n", border = T, cex = 0.8)
 
-vrange<-(1:30)*0.5
+
 #image2D(dbz_vol[,10 , ], x=radar_range, y=vrange, xlab="[Km]", ylab="[Km]", 
 #        main="e) Vertical Cross-section of Reflectivity");grid(lty=2)
 #contour2D(wt_class_3d[,10 , ], x=radar_range, y=vrange, colkey = F, col = "black", add=T, 
 #          lwd=.1, lty=3, resfac = 2, clab = F)
-ycross <- 88
-
-image2D(dbz_vol[, ycross, ], x=radar_range, y=vrange, xlab="[Km]", ylab="[Km]", 
-      main="e) Vertical Cross-section of Reflectivity", col = cols_dbz, NAcol = "grey80");grid(lty=2, col="white", lwd=0.5)
-contour2D(wt_sum_dbz[,ycross , ], x=radar_range, y=vrange, colkey = F, col = "black", add=T, 
-                lwd=1, lty=2,  breaks=seq(10, 30, 5))
 
 
-contour2D(wt_class_3d[,ycross , ], x=radar_range, y=vrange, colkey = F, col = "red", add=T, 
-                 lwd=0.5, lty=1, resfac = 2, clab = F, breaks=c(0, 15))
+image2D(dbz_vol[,ycross , ], x=radar_range, y=vrange, xlab="[Km]", ylab="[Km]", xlim=xlimit,
+        col = cols_dbz, NAcol = "white");grid(lty=2, lwd=0.5)
+contour(wt_sum_dbz[,ycross , ], x=radar_range, y=vrange, colkey = F, col = "black", add=T, 
+        lwd=1, lty=1,  levels=c(0, 5))
+contour(wt_sum_dbz[,ycross , ], x=radar_range, y=vrange, colkey = F, col = "black", add=T, 
+        lwd=1, lty=2,  levels=c(0, 2))
+title(main="e) Vertical Cross-section of dBZ and WT contour", adj=0)
+#contour2D(wt_class_3d[,ycross , ], x=radar_range, y=vrange, colkey = F, col = "red", add=T, 
+#                 lwd=0.5, lty=1, resfac = 2, clab = F, breaks=c(0, 15))
 #
 
 dev.off()
