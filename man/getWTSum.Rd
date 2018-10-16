@@ -4,7 +4,7 @@
 \alias{getWTSum}
 \title{returns sum of WT upto given scale.}
 \usage{
-getWTSum(vol_data_T, conv_scale)
+getWTSum(vol_data, conv_scale)
 }
 \description{
 returns sum of WT upto given scale.
