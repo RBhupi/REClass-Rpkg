@@ -51,7 +51,7 @@ saveVertProf <- function(fout="./profiles.txt", dbz_vol, scale_break, vert_range
 sampleVertProf <- function(wt_class_3d, n=10, vert_range=1:30){
     dims <- dim(wt_class_3d)
     vstruct <- matrix(data = NA, ncol=length(vert_range), nrow = 0, byrow = TRUE)
-    nsample <- 1000
+    nsample <- n
     #select 1000  random locations and sample vert profiles
     x_select <- sample(seq(dims[1]), size = nsample, replace = TRUE)
     y_select <- sample(seq(dims[2]), size = nsample, replace = TRUE)
@@ -62,7 +62,7 @@ sampleVertProf <- function(wt_class_3d, n=10, vert_range=1:30){
         vert_column <- wt_class_3d[x_select[i], y_select[i], vert_range]
         
         #if column is neither empty nor full of NAs
-        if(!all(is.na(vert_column)) && !all(vert_column==0)){
+        if(sum(!is.na(vert_column), na.rm = TRUE)>3 & !all(vert_column==0)){
             vstruct<-rbind(vstruct, vert_column)
             counter <- counter+1
             if(counter==n) break()

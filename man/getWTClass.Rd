@@ -4,12 +4,14 @@
 \alias{getWTClass}
 \title{Compute scan-by-scan ATWT of radar volume.}
 \usage{
-getWTClass(dbz_data, conv_scale)
+getWTClass(dbz_data, res_km, conv_scale = 20)
 }
 \arguments{
 \item{\code{vol_data}}{3D array containing radar data. Last dimension should be levels.}
 
-\item{\code{conv_scale}}{scale break (in pixels) between convective and stratiform scales.}
+\item{\code{res_km}}{resolution of the radar data in km.}
+
+\item{\code{conv_scale}}{approximate scale break (in km) between convective and stratiform scales.}
 }
 \value{
 Sum of wavelets upto \code{conv_scale} for each scan.

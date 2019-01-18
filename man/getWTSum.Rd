@@ -7,5 +7,5 @@
 getWTSum(vol_data, conv_scale)
 }
 \description{
-returns sum of WT upto given scale.
+Works with both 2d scans and Volume data.
 }
