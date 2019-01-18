@@ -4,13 +4,15 @@
 #' Converts dBZ to rain rates using standard Z-R relationship.
 #' This is to transform the normally distributed dBZ to gamma-like distribution.
 #' @param \code{vol_data} 3D array containing radar data. Last dimension should be levels.
-#' @param \code{conv_scale} scale break (in pixels) between convective and stratiform scales.
+#' @param \code{res_km} resolution of the radar data in km.
+#' @param \code{conv_scale} approximate scale break (in km) between convective and stratiform scales.
 #' @return Sum of wavelets upto \code{conv_scale} for each scan.
 #' @export
 #' @seealso \code{\link{getWTSum}}
-getWTClass <- function(dbz_data, conv_scale){
+getWTClass <- function(dbz_data, res_km, conv_scale=20){
+    scale_break <- getScaleBreak(res_km, conv_scale_km)
     dbz_data_t <- dbz2rr(dbz_data) #transform the dbz data
-    wt_sum <- getWTSum(dbz_data_t, conv_scale)
+    wt_sum <- getWTSum(dbz_data_t, scale_break)
     wt_class <- labelClasses(wt_sum, dbz_data)
     invisible(wt_class)
 }
@@ -29,7 +31,9 @@ dbz2rr <- function(dbz, ZRA=200, ZRB=1.6){
 
 
 #' returns sum of WT upto given scale.
-#' @export
+#' 
+#' Works with both 2d scans and Volume data.
+#'
 getWTSum <- function(vol_data, conv_scale) {
     dims <- dim(vol_data)
     
@@ -61,14 +65,18 @@ getWTSum <- function(vol_data, conv_scale) {
 #' using given thersholds.
 labelClasses <- function(wt_sum, vol_data) {
     conv_wt_threshold <- 5 #WT value more than this is strong convection
-    tran_wt_threshold <- 2 #WT value for moderate convection
-    min_dbz_threshold <- 10
-    con_dbz_threshold <- 25 # pixel below this value are not convective
+    tran_wt_threshold <- 2.5 #WT value for moderate convection
+    min_dbz_threshold <- 10 #pixels below this value are not classified
+    con_dbz_threshold <- 30 # pixel below this value are not convective
     
-    wt_class <- ifelse(wt_sum>=conv_wt_threshold & vol_data>=con_dbz_threshold, 2, NA)
+    #I first used negative numbers to annotate the categories. Then multiply it by -1.
+    wt_class <- ifelse(wt_sum>=conv_wt_threshold & vol_data>=con_dbz_threshold, -2, NA)
     wt_class <- ifelse(wt_sum<conv_wt_threshold & wt_sum>=tran_wt_threshold & vol_data>=con_dbz_threshold, 
-                       3, wt_class)
-    wt_class <- replace(wt_class, is.na(wt_class) & vol_data>=min_dbz_threshold, 1)
+                       -3, wt_class)
+    wt_class <- replace(wt_class, is.na(wt_class) & vol_data>=min_dbz_threshold, -1)
+    
+    wt_class <- wt_class*-1
+    
     invisible(wt_class)
 }
 
