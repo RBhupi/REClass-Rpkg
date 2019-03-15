@@ -1,6 +1,3 @@
-The R package classifies the radar echoes using the wavelet scale analysis. The á trous wavelet transform is used to separate convective
-scale features from the smooth stratiform field. Radar echoes are labeled with three 
-categories 1. Stratiform class, 2. convective class and 3. an
-intermediate class.
+The R package classifies the radar echoes using the wavelet scale analysis. The á trous wavelet transform is used to separate convective scale features from the smooth stratiform field. Radar echoes are labeled with three  categories 1. Stratiform class, 2. convective class and 3. an intermediate class.
 
 Check PDF documentation for function detail.
