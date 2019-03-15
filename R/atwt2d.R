@@ -11,9 +11,6 @@
 #'@author Bhupendra Raut and Dileep M. Puranik
 #'@seealso Press et al. (1992) Numerical Recipes in C.
 atwt2d <- function (data2d, max_scale=-1){
-    #removed missing and negative values
-    data2d <- replace(data2d, is.na(data2d), 0.0)
-    
     dims <- dim(data2d)
     ny <- dims[1]
     nx <- dims[2]

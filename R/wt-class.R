@@ -9,7 +9,10 @@
 #' @return Sum of wavelets upto \code{conv_scale} for each scan.
 #' @export
 #' @seealso \code{\link{getWTSum}}
-getWTClass <- function(dbz_data, res_km, conv_scale=20){
+getWTClass <- function(dbz_data, res_km, conv_scale_km=20){
+    #save the mask for missing data.
+    #data_mask <- ifelse(test = is.na(dbz_data), yes = NA, no = 0)
+    dbz_data <- replace(dbz_data, is.na(dbz_data), 0.0)
     scale_break <- getScaleBreak(res_km, conv_scale_km)
     dbz_data_t <- dbz2rr(dbz_data) #transform the dbz data
     wt_sum <- getWTSum(dbz_data_t, scale_break)
@@ -65,7 +68,7 @@ getWTSum <- function(vol_data, conv_scale) {
 #' using given thersholds.
 labelClasses <- function(wt_sum, vol_data) {
     conv_wt_threshold <- 5 #WT value more than this is strong convection
-    tran_wt_threshold <- 2.5 #WT value for moderate convection
+    tran_wt_threshold <- 2 #WT value for moderate convection
     min_dbz_threshold <- 10 #pixels below this value are not classified
     con_dbz_threshold <- 30 # pixel below this value are not convective
     
@@ -102,7 +105,6 @@ cleanWT <-function(wt_sum, dbz_vol){
 #' @param res_km resolution of the image.
 #' @param conv_scale_km expected size of spatial variations due to convection.
 #' @return dyadic integer scale break in pixels.  
-#' @export
 getScaleBreak<- function(res_km, conv_scale_km){
     scale_break <-log((conv_scale_km/res_km))/log(2)+1
     return(round(scale_break))
@@ -119,7 +121,6 @@ getScaleBreak<- function(res_km, conv_scale_km){
 #' @param vert_clust Clusters saved in RDs files from functions \code{\link{clusterProfiles}}
 #' @param vert_range same vert_range in as \code{\link{saveVertProf}} and \code{\link{sampleVertProf}}
 #' @return 2d array of pixels labeled with three classes. 1. stratiform, 2. Convection, 3. Mixed (Need correction)
-#' @export
 #' @seealso \code{\link{get_class}}
 class3dTo2d <- function(wt_class_3d, vert_clust, vert_range=1:30){
     wt_class_3d <- replace(wt_class_3d, is.na(wt_class_3d), 0)
